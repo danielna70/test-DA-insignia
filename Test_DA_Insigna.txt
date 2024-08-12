@@ -1,0 +1,138 @@
+-- Temporary table : report_monthly_orders_product
+
+SELECT
+    oi.product_id,
+    p.name AS product_name,
+    p.brand AS product_brand,
+    p.category AS product_category,
+    EXTRACT(YEAR FROM o.created_at) AS year,
+    EXTRACT(MONTH FROM o.created_at) AS month,
+    ROUND(SUM(oi.sale_price * o.num_of_item),1) AS total_revenue,
+    SUM(o.num_of_item) AS total_quantity
+FROM
+    `bigquery-public-data.thelook_ecommerce.orders` AS o
+JOIN
+    `bigquery-public-data.thelook_ecommerce.order_items` AS oi
+ON
+    o.order_id = oi.order_id
+JOIN
+    `bigquery-public-data.thelook_ecommerce.products` AS p
+ON
+    oi.product_id = p.id
+GROUP BY
+    oi.product_id,
+    p.name,
+    p.brand,
+    p.category,
+    year,
+    month
+ ORDER BY
+    year ASC, 
+    month ASC; 
+
+
+Penjelasan :
+
+• SELECT : Bagian ini menentukan kolom-kolom apa saja yang akan ditampilkan dalam hasil query.
+• oi.product_id : Menampilkan ID produk dari tabel order_item.
+• p.name AS product_name : Mengambil nama produk dari tabel products dan memberinya alias product_name.
+• p.brand AS product_brand : Mengambil merek produk dari tabel products dan memberinya alias product_brand.
+• p.category AS product_category : Mengambil kategori produk dari tabel products dan memberinya alias product_category.
+• EXTRACT(YEAR FROM o.created_at) AS year : Mengekstrak tahun dari kolom created_at di tabel orders dan memberi alias year.
+• EXTRACT(MONTH FROM o.created_at) AS month : Mengekstrak bulan dari kolom created_at di tabel orders dan memberi alias month.
+• ROUND(SUM(oi.sale_price * oi.num_of_item),1) AS total_revenue : Menghitung total pendapatan (total_revenue) dengan mengalikan harga per unit (sale_price) dengan jumlah unit yang dijual (num_of_item) kemudian menjumlahkan total tersebut untuk setiap kombinasi produk, bulan, dan tahun dimana nilainya diambil hanya 1 digit dibelakang koma saja (ROUND).
+• SUM(oi.num_of_items) AS total_quantity : Menghitung total jumlah barang yang terjual (total_quantity) untuk setiap kombinasi produk, bulan dan tahun.
+• FROM bigquery-public-data.thelook_ecommerce.orders AS o : Mengambil data dari tabel orders dengan memberi alias o yang berada dalam dataset thelook_ecommerce yang merupakan bagian dari bigquery-public-data, sebuah koleksi dataset publik yang disediakan oleh Google BigQuery .
+• JOIN bigquery-public-data.thelook_ecommerce.order_items AS oi ON o.order_id = oi.order_id : Melakukan JOIN antara tabel orders dan order_items dengan memberi alias oi berdasarkan kolom order_id yang terdapat di kedua tabel.
+• JOIN bigquery-public-data.thelook_ecommerce.products AS p ON oi.product_id = p.id : Melakukan JOIN antara tabel order_items dan products dengan memberi alias p berdasarkan kolom product_id dari tabel order_items dan kolom id dari tabel products.
+• GROUP BY : Bagian ini mengelompokkan hasil query berdasarkan kombinasi kolom-kolom yang disebutkan.
+• oi.product_id : Mengelompokkan hasil berdasarkan ID produk.
+• p.name : Mengelompokkan hasil berdasarkan nama produk.
+• p.brand : Mengelompokkan hasil berdasarkan merek produk.
+• p.category : Mengelompokkan hasil berdasarkan kategori produk.
+• year : Mengelompokkan hasil berdasarkan tahun dari tanggal pesanan.
+• month : Mengelompokkan hasil berdasarkan bulan dari tanggal pesanan.
+• ORDER BY : Bagian ini mengurutkan hasil query berdasarkan kolom-kolom yang disebutkan.
+• year ASC : Mengurutkan hasil berdasarkan tahun (year) secara ascending (dari yang paling awal).
+• month ASC : Mengurutkan hasil dalam setiap tahun berdasarkan bulan (month) secara ascending (dari yang paling awal).
+
+
+
+-- Products With the Highest Sales Every Month by Revenue
+
+WITH monthly_sales AS (
+    SELECT
+        EXTRACT(YEAR FROM o.created_at) AS year,
+        EXTRACT(MONTH FROM o.created_at) AS month,
+        oi.product_id,
+        p.name AS product_name,
+        ROUND(SUM(oi.sale_price * o.num_of_item), 1) AS total_revenue,
+        SUM(o.num_of_item) AS total_quantity
+    FROM
+        `bigquery-public-data.thelook_ecommerce.orders` AS o
+    JOIN
+        `bigquery-public-data.thelook_ecommerce.order_items` AS oi
+    ON
+        o.order_id = oi.order_id
+    JOIN
+        `bigquery-public-data.thelook_ecommerce.products` AS p
+    ON
+        oi.product_id = p.id
+    GROUP BY
+        year,
+        month,
+        oi.product_id,
+        p.name
+)
+SELECT
+    ms.year,
+    ms.month,
+    ms.product_id,
+    ms.product_name,
+    ms.total_revenue,
+    ms.total_quantity
+FROM
+    monthly_sales AS ms
+JOIN (
+    SELECT
+        year,
+        month,
+        MAX(total_revenue) AS max_revenue
+    FROM
+        monthly_sales
+    GROUP BY
+        year,
+        month
+) max_sales
+ON
+    ms.year = max_sales.year
+    AND ms.month = max_sales.month
+    AND ms.total_revenue = max_sales.max_revenue
+ORDER BY
+    ms.year,
+    ms.month;
+
+
+Penjelasan :
+
+• WITH monthly_sales AS (...) : Bagian ini membuat Common Table Expression (CTE) bernama monthly_sales, yang menghitung total pendapatan (total_revenue) per produk setiap bulan.
+• SELECT : Bagian ini menentukan kolom-kolom apa saja yang akan ditampilkan dalam hasil query.
+• EXTRACT(YEAR FROM o.created_at) AS year : Mengekstrak tahun dari kolom created_at di tabel orders dan memberi alias year.
+• EXTRACT(MONTH FROM o.created_at) AS month : Mengekstrak bulan dari kolom created_at di tabel orders dan memberi alias month.
+• oi.product_id : Menampilkan ID produk dari tabel order_items.
+• p.name AS product_name : Mengambil nama produk dari tabel products dan memberinya alias product_name.
+• ROUND(SUM(oi.sale_price * oi.num_of_item),1) AS total_revenue : Menghitung total pendapatan (total_revenue) dengan mengalikan harga per unit (sale_price) dengan jumlah unit yang dijual (num_of_item), kemudian menjumlahkan total tersebut untuk setiap kombinasi produk, bulan, dan tahun dimana nilainya diambil hanya 1 digit dibelakang koma saja (ROUND).
+• FROM bigquery-public-data.thelook_ecommerce.orders AS o : Mengambil data dari tabel orders dengan memberi alias o yang berada dalam dataset thelook_ecommerce yang merupakan bagian dari bigquery-public-data, sebuah koleksi dataset publik yang disediakan oleh Google BigQuery .
+• JOIN bigquery-public-data.thelook_ecommerce.order_items AS oi ON o.order_id = oi.order_id : Melakukan JOIN antara tabel orders dan order_items dengan memberi alias oi berdasarkan kolom order_id yang terdapat di kedua tabel.
+• JOIN bigquery-public-data.thelook_ecommerce.products AS p ON oi.product_id = p.id : Melakukan JOIN antara tabel order_items dan products dengan memberi alias p berdasarkan kolom product_id dari tabel order_items dan kolom id dari tabel products.
+• GROUP BY year, month, oi.product_id, p.name : Mengelompokkan data berdasarkan tahun, bulan, ID produk, dan nama produk.
+• SELECT : Bagian ini menentukan kolom-kolom apa saja yang akan ditampilkan dalam hasil query.
+• ms.year : Menampilan data penjualan setiap tahun dari tabel monthly_sales.
+• ms.month : Menampilan data penjualan setiap bulan dari tabel monthly_sales.
+• ms.product_id : Menampilan data penjualan berdsarkan ID produk dari tabel monthly_sales.
+• ms.total_revenue : Menampilkan data penjualan berdasarakan total pendapatan dari tabel monthly_sales.
+• ms.total_quantity : Menampilkan data berdasarakan total jumlah barang yang terjual dari tabel monthly_sales.
+• FROM monthly_sales AS ms: Mengambil data dari tabel monthly_sales dengan memberi alias ms.
+• JOIN (SELECT year, month, MAX(total_revenue) AS max_revenue FROM monthly_sales GROUP BY year, month) max_sales : Subquery ini menghitung pendapatan maksimal (max_revenue) untuk setiap bulan, tanpa melihat produk tertentu.
+• ON ms.year = max_sales.year AND ms.month = max_sales.month AND ms.total_revenue = max_sales.max_revenue : Menggabungkan hasil subquery max_sales dengan CTE monthly_sales berdasarkan tahun, bulan, dan total pendapatan yang sesuai dengan max_revenue.
+• ORDER BY ms.year, ms.month : Mengurutkan hasil berdasarkan tahun dan bulan.
